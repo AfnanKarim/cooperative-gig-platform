@@ -3,3 +3,6 @@ uvicorn
 python-dotenv
 google-genai
 pydantic
+scikit-learn
+joblib
+pandas
