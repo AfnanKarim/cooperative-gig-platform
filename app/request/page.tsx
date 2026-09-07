@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://veyra-backend-aydx.onrender.com";
 
 const examples = [
   "My ceiling fan has stopped working and makes a strange noise.",
