@@ -497,3 +497,32 @@ def calculate_worker_score(
     )
 
     return round(score, 2)
+def get_worker_category(required_skill: str) -> str:
+    skill = required_skill.lower()
+
+    skill_groups = {
+        "electrical repair": (
+            "fan", "electrical", "wiring", "switch",
+            "socket", "light", "power",
+        ),
+        "plumbing": (
+            "plumb", "water", "leak", "pipe",
+            "tap", "sink", "drain",
+        ),
+        "carpentry": (
+            "carp", "wood", "furniture", "table",
+            "chair", "door",
+        ),
+        "cleaning": (
+            "clean", "housekeeping", "sanitation",
+        ),
+        "gardening": (
+            "garden", "gardening", "lawn", "plant",
+        ),
+    }
+
+    for category, keywords in skill_groups.items():
+        if any(keyword in skill for keyword in keywords):
+            return category
+
+    return "general repairs"

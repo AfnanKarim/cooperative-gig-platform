@@ -1,0 +1,328 @@
+{
+  "version": "1.0",
+  "algorithm": "TF-IDF + Logistic Regression",
+  "training_examples": 178,
+  "test_examples": 36,
+  "random_state": 42,
+  "test_size": 0.2,
+  "vectorizer": {
+    "analyzer": "word",
+    "ngram_range": [
+      1,
+      2
+    ],
+    "lowercase": true,
+    "strip_accents": "unicode",
+    "sublinear_tf": true,
+    "max_features": 10000
+  },
+  "models": {
+    "service": {
+      "metrics": {
+        "accuracy": 0.8889,
+        "macro_f1": 0.8873
+      },
+      "confidence": {
+        "selected_threshold": 0.2,
+        "selected_accuracy": 0.9143,
+        "selected_coverage": 0.9722,
+        "tested_thresholds": [
+          {
+            "threshold": 0.2,
+            "coverage": 0.9722222222222222,
+            "accuracy": 0.9142857142857143
+          },
+          {
+            "threshold": 0.25,
+            "coverage": 0.7222222222222222,
+            "accuracy": 0.9615384615384616
+          },
+          {
+            "threshold": 0.3,
+            "coverage": 0.5277777777777778,
+            "accuracy": 0.9473684210526315
+          },
+          {
+            "threshold": 0.35,
+            "coverage": 0.3333333333333333,
+            "accuracy": 1.0
+          },
+          {
+            "threshold": 0.4,
+            "coverage": 0.16666666666666666,
+            "accuracy": 1.0
+          },
+          {
+            "threshold": 0.45,
+            "coverage": 0.08333333333333333,
+            "accuracy": 1.0
+          },
+          {
+            "threshold": 0.5,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.55,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.6,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.65,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.7,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.75,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.8,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.85,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.9,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          }
+        ]
+      },
+      "classes": [
+        "Carpentry",
+        "Cleaning",
+        "Electrical",
+        "Gardening",
+        "General Repairs",
+        "Plumbing"
+      ]
+    },
+    "urgency": {
+      "metrics": {
+        "accuracy": 0.8333,
+        "macro_f1": 0.7619
+      },
+      "confidence": {
+        "selected_threshold": 0.4,
+        "selected_accuracy": 0.8571,
+        "selected_coverage": 0.9722,
+        "tested_thresholds": [
+          {
+            "threshold": 0.2,
+            "coverage": 1.0,
+            "accuracy": 0.8333333333333334
+          },
+          {
+            "threshold": 0.25,
+            "coverage": 1.0,
+            "accuracy": 0.8333333333333334
+          },
+          {
+            "threshold": 0.3,
+            "coverage": 1.0,
+            "accuracy": 0.8333333333333334
+          },
+          {
+            "threshold": 0.35,
+            "coverage": 1.0,
+            "accuracy": 0.8333333333333334
+          },
+          {
+            "threshold": 0.4,
+            "coverage": 0.9722222222222222,
+            "accuracy": 0.8571428571428571
+          },
+          {
+            "threshold": 0.45,
+            "coverage": 0.75,
+            "accuracy": 0.8518518518518519
+          },
+          {
+            "threshold": 0.5,
+            "coverage": 0.5833333333333334,
+            "accuracy": 0.8095238095238095
+          },
+          {
+            "threshold": 0.55,
+            "coverage": 0.3611111111111111,
+            "accuracy": 0.9230769230769231
+          },
+          {
+            "threshold": 0.6,
+            "coverage": 0.25,
+            "accuracy": 0.8888888888888888
+          },
+          {
+            "threshold": 0.65,
+            "coverage": 0.08333333333333333,
+            "accuracy": 1.0
+          },
+          {
+            "threshold": 0.7,
+            "coverage": 0.027777777777777776,
+            "accuracy": 1.0
+          },
+          {
+            "threshold": 0.75,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.8,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.85,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.9,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          }
+        ]
+      },
+      "classes": [
+        "High",
+        "Low",
+        "Medium"
+      ]
+    },
+    "required_skill": {
+      "metrics": {
+        "accuracy": 0.5278,
+        "macro_f1": 0.3299
+      },
+      "confidence": {
+        "selected_threshold": 0.2,
+        "selected_accuracy": 0.0,
+        "selected_coverage": 0.0,
+        "tested_thresholds": [
+          {
+            "threshold": 0.2,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.25,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.3,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.35,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.4,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.45,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.5,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.55,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.6,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.65,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.7,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.75,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.8,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.85,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          },
+          {
+            "threshold": 0.9,
+            "coverage": 0.0,
+            "accuracy": 0.0
+          }
+        ]
+      },
+      "classes": [
+        "Bathroom Cleaning",
+        "Carpentry Repair",
+        "Ceiling Fan Installation",
+        "Ceiling Fan Repair",
+        "Deep Cleaning",
+        "Door Repair",
+        "Drain Repair",
+        "Electrical Repair",
+        "Furniture Assembly",
+        "Furniture Repair",
+        "Furniture Work",
+        "Garden Maintenance",
+        "General Repair",
+        "House Cleaning",
+        "Kitchen Cleaning",
+        "Lawn Maintenance",
+        "Lighting Installation",
+        "Lighting Repair",
+        "Pipe Repair",
+        "Plant Care",
+        "Plumbing Repair",
+        "Shelf Installation",
+        "Shelf Repair",
+        "Socket Repair",
+        "Switch Repair",
+        "Tap Repair",
+        "Tree Pruning",
+        "Window Cleaning"
+      ]
+    }
+  }
+}

@@ -1,0 +1,397 @@
+
+from pathlib import Path
+from collections import Counter
+import csv
+
+# ---------------------------------------------------------
+# Veyra local ML training dataset generator
+# ---------------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent
+OUT_PATH = BASE_DIR / "service_requests.csv"
+
+EXPECTED_COLUMNS = [
+    "text",
+    "service",
+    "urgency",
+    "required_skill",
+]
+
+VALID_SERVICES = {
+    "Electrical",
+    "Plumbing",
+    "Carpentry",
+    "Cleaning",
+    "Gardening",
+    "General Repairs",
+}
+
+VALID_URGENCY = {"Low", "Medium", "High"}
+
+
+rows = []
+
+
+# ---------------------------------------------------------
+# ELECTRICAL
+# ---------------------------------------------------------
+
+electrical_examples = [
+    ("My ceiling fan stopped working", "Electrical", "Medium", "Electrical Repair"),
+    ("Ceiling fan is not running", "Electrical", "Medium", "Electrical Repair"),
+    ("Fan is making a strange noise", "Electrical", "Medium", "Ceiling Fan Repair"),
+    ("My fan is not starting", "Electrical", "Medium", "Ceiling Fan Repair"),
+    ("Need someone to repair my ceiling fan", "Electrical", "Medium", "Ceiling Fan Repair"),
+    ("Light bulb keeps flickering", "Electrical", "Medium", "Lighting Repair"),
+    ("The tube light is flickering", "Electrical", "Medium", "Lighting Repair"),
+    ("My bedroom light is not working", "Electrical", "Medium", "Lighting Repair"),
+    ("Need help installing a tube light", "Electrical", "Low", "Lighting Installation"),
+    ("The switch is broken", "Electrical", "Medium", "Switch Repair"),
+    ("Wall switch is not working", "Electrical", "Medium", "Switch Repair"),
+    ("My socket has stopped working", "Electrical", "Medium", "Socket Repair"),
+    ("Power socket is loose", "Electrical", "Medium", "Socket Repair"),
+    ("There is a spark from the switch", "Electrical", "High", "Electrical Repair"),
+    ("Switchboard is sparking", "Electrical", "High", "Electrical Repair"),
+    ("Mere ghar ka fan kharab hai", "Electrical", "Medium", "Ceiling Fan Repair"),
+    ("Fan chal nahi raha hai", "Electrical", "Medium", "Ceiling Fan Repair"),
+    ("Light blink kar rahi hai", "Electrical", "Medium", "Lighting Repair"),
+    ("Switch se spark aa raha hai", "Electrical", "High", "Electrical Repair"),
+    ("Socket kaam nahi kar raha", "Electrical", "Medium", "Socket Repair"),
+    ("Mere room ki light band hai", "Electrical", "Medium", "Lighting Repair"),
+    ("Need an electrician for wiring", "Electrical", "Medium", "Electrical Repair"),
+    ("Some wires are damaged", "Electrical", "High", "Electrical Repair"),
+    ("Electrical wiring needs repair", "Electrical", "Medium", "Electrical Repair"),
+    ("My doorbell is not working", "Electrical", "Medium", "Electrical Repair"),
+    ("Door bell stopped working", "Electrical", "Medium", "Electrical Repair"),
+    ("Need an electrician to install a new light", "Electrical", "Low", "Lighting Installation"),
+    ("Need a new ceiling fan installed", "Electrical", "Low", "Ceiling Fan Installation"),
+    ("My exhaust fan stopped working", "Electrical", "Medium", "Electrical Repair"),
+    ("Exhaust fan is not turning on", "Electrical", "Medium", "Electrical Repair"),
+]
+
+rows.extend(electrical_examples)
+
+
+# ---------------------------------------------------------
+# PLUMBING
+# ---------------------------------------------------------
+
+plumbing_examples = [
+    ("Water is leaking under my kitchen sink", "Plumbing", "High", "Plumbing Repair"),
+    ("Kitchen sink is leaking", "Plumbing", "High", "Plumbing Repair"),
+    ("There is a leak under the bathroom sink", "Plumbing", "High", "Plumbing Repair"),
+    ("My tap is leaking", "Plumbing", "Medium", "Tap Repair"),
+    ("Bathroom tap keeps dripping", "Plumbing", "Medium", "Tap Repair"),
+    ("Kitchen faucet is leaking", "Plumbing", "Medium", "Tap Repair"),
+    ("Water pipe has a leak", "Plumbing", "High", "Pipe Repair"),
+    ("A pipe is leaking in my house", "Plumbing", "High", "Pipe Repair"),
+    ("Water is coming out of the pipe", "Plumbing", "High", "Pipe Repair"),
+    ("My sink is blocked", "Plumbing", "Medium", "Drain Repair"),
+    ("Kitchen drain is clogged", "Plumbing", "Medium", "Drain Repair"),
+    ("Bathroom drain is blocked", "Plumbing", "Medium", "Drain Repair"),
+    ("Water is not draining from the sink", "Plumbing", "Medium", "Drain Repair"),
+    ("Need help fixing a leaking tap", "Plumbing", "Medium", "Tap Repair"),
+    ("Need a plumber urgently", "Plumbing", "High", "Plumbing Repair"),
+    ("Bathroom pipe is leaking badly", "Plumbing", "High", "Pipe Repair"),
+    ("Mere sink ke neeche paani leak ho raha hai", "Plumbing", "High", "Plumbing Repair"),
+    ("Tap se paani leak ho raha hai", "Plumbing", "Medium", "Tap Repair"),
+    ("Bathroom ka drain block hai", "Plumbing", "Medium", "Drain Repair"),
+    ("Pipe mein leakage hai", "Plumbing", "High", "Pipe Repair"),
+    ("Sink ka paani drain nahi ho raha", "Plumbing", "Medium", "Drain Repair"),
+    ("Kitchen tap is broken", "Plumbing", "Medium", "Tap Repair"),
+    ("Water pipe needs replacement", "Plumbing", "Medium", "Pipe Repair"),
+    ("My bathroom faucet is dripping", "Plumbing", "Medium", "Tap Repair"),
+    ("There is water leaking from the bathroom pipe", "Plumbing", "High", "Pipe Repair"),
+    ("Need someone to fix my sink", "Plumbing", "Medium", "Plumbing Repair"),
+    ("Water is pooling near the sink", "Plumbing", "High", "Plumbing Repair"),
+    ("My drain smells and is blocked", "Plumbing", "Medium", "Drain Repair"),
+    ("Need plumbing work in my kitchen", "Plumbing", "Medium", "Plumbing Repair"),
+    ("Please fix the leaking bathroom tap", "Plumbing", "Medium", "Tap Repair"),
+]
+
+rows.extend(plumbing_examples)
+
+
+# ---------------------------------------------------------
+# CARPENTRY
+# ---------------------------------------------------------
+
+carpentry_examples = [
+    ("I need help assembling a wooden table", "Carpentry", "Low", "Furniture Assembly"),
+    ("Please assemble my study table", "Carpentry", "Low", "Furniture Assembly"),
+    ("Need someone to assemble a chair", "Carpentry", "Low", "Furniture Assembly"),
+    ("My wooden chair is broken", "Carpentry", "Medium", "Furniture Repair"),
+    ("Wooden table needs repair", "Carpentry", "Medium", "Furniture Repair"),
+    ("My cupboard door is broken", "Carpentry", "Medium", "Carpentry Repair"),
+    ("Cupboard hinge needs fixing", "Carpentry", "Medium", "Carpentry Repair"),
+    ("Door hinge is loose", "Carpentry", "Medium", "Door Repair"),
+    ("My wooden door is damaged", "Carpentry", "Medium", "Door Repair"),
+    ("Need a carpenter to fix my door", "Carpentry", "Medium", "Door Repair"),
+    ("Need a shelf installed", "Carpentry", "Low", "Shelf Installation"),
+    ("Please install a wall shelf", "Carpentry", "Low", "Shelf Installation"),
+    ("Wooden shelf is loose", "Carpentry", "Medium", "Shelf Repair"),
+    ("Need custom wooden furniture", "Carpentry", "Low", "Furniture Work"),
+    ("I need a carpenter for a table", "Carpentry", "Low", "Furniture Work"),
+    ("My cabinet needs repair", "Carpentry", "Medium", "Furniture Repair"),
+    ("Cabinet door is not closing", "Carpentry", "Medium", "Furniture Repair"),
+    ("Wooden bed needs fixing", "Carpentry", "Medium", "Furniture Repair"),
+    ("Bed frame is damaged", "Carpentry", "Medium", "Furniture Repair"),
+    ("Mere table ka leg toot gaya hai", "Carpentry", "Medium", "Furniture Repair"),
+    ("Cupboard ka door theek karna hai", "Carpentry", "Medium", "Carpentry Repair"),
+    ("Door ka hinge loose hai", "Carpentry", "Medium", "Door Repair"),
+    ("Wooden shelf lagwani hai", "Carpentry", "Low", "Shelf Installation"),
+    ("Study table assemble karna hai", "Carpentry", "Low", "Furniture Assembly"),
+    ("Need someone to fix a wooden door", "Carpentry", "Medium", "Door Repair"),
+    ("Wooden cupboard is damaged", "Carpentry", "Medium", "Furniture Repair"),
+    ("Please repair my dining table", "Carpentry", "Medium", "Furniture Repair"),
+    ("Need a carpenter to install shelves", "Carpentry", "Low", "Shelf Installation"),
+    ("My chair has a broken leg", "Carpentry", "Medium", "Furniture Repair"),
+    ("Wooden cabinet hinge is broken", "Carpentry", "Medium", "Carpentry Repair"),
+]
+
+rows.extend(carpentry_examples)
+
+
+# ---------------------------------------------------------
+# CLEANING
+# ---------------------------------------------------------
+
+cleaning_examples = [
+    ("I need someone to clean my house", "Cleaning", "Low", "House Cleaning"),
+    ("Please clean my apartment", "Cleaning", "Low", "House Cleaning"),
+    ("Need a deep cleaning service", "Cleaning", "Low", "Deep Cleaning"),
+    ("My house needs deep cleaning", "Cleaning", "Low", "Deep Cleaning"),
+    ("Kitchen needs cleaning", "Cleaning", "Low", "Kitchen Cleaning"),
+    ("Please clean my kitchen", "Cleaning", "Low", "Kitchen Cleaning"),
+    ("Bathroom needs cleaning", "Cleaning", "Low", "Bathroom Cleaning"),
+    ("Please clean the bathroom", "Cleaning", "Low", "Bathroom Cleaning"),
+    ("Need help cleaning windows", "Cleaning", "Low", "Window Cleaning"),
+    ("Windows are very dirty", "Cleaning", "Low", "Window Cleaning"),
+    ("Need someone to mop the floor", "Cleaning", "Low", "House Cleaning"),
+    ("Please mop and clean my floors", "Cleaning", "Low", "House Cleaning"),
+    ("House is dusty and needs cleaning", "Cleaning", "Low", "House Cleaning"),
+    ("Need regular home cleaning", "Cleaning", "Low", "House Cleaning"),
+    ("Can someone clean my apartment today", "Cleaning", "Low", "House Cleaning"),
+    ("Mere ghar ki safai karwani hai", "Cleaning", "Low", "House Cleaning"),
+    ("Kitchen ki safai chahiye", "Cleaning", "Low", "Kitchen Cleaning"),
+    ("Bathroom clean karwana hai", "Cleaning", "Low", "Bathroom Cleaning"),
+    ("Ghar bahut dusty hai", "Cleaning", "Low", "House Cleaning"),
+    ("Floor mop karna hai", "Cleaning", "Low", "House Cleaning"),
+    ("Need a cleaner for my house", "Cleaning", "Low", "House Cleaning"),
+    ("Please clean my bedroom", "Cleaning", "Low", "House Cleaning"),
+    ("Need someone for bathroom cleaning", "Cleaning", "Low", "Bathroom Cleaning"),
+    ("Kitchen floor is dirty", "Cleaning", "Low", "Kitchen Cleaning"),
+    ("Need deep cleaning before guests arrive", "Cleaning", "Low", "Deep Cleaning"),
+    ("Please clean the entire apartment", "Cleaning", "Low", "Deep Cleaning"),
+    ("Need a professional house cleaner", "Cleaning", "Low", "House Cleaning"),
+    ("Help me clean my home", "Cleaning", "Low", "House Cleaning"),
+    ("Need someone to clean the windows", "Cleaning", "Low", "Window Cleaning"),
+]
+
+rows.extend(cleaning_examples)
+
+
+# ---------------------------------------------------------
+# GARDENING
+# ---------------------------------------------------------
+
+gardening_examples = [
+    ("I need someone to maintain my garden", "Gardening", "Low", "Garden Maintenance"),
+    ("Please take care of my garden", "Gardening", "Low", "Garden Maintenance"),
+    ("My lawn needs maintenance", "Gardening", "Low", "Lawn Maintenance"),
+    ("Need someone to cut the grass", "Gardening", "Low", "Lawn Maintenance"),
+    ("Please mow my lawn", "Gardening", "Low", "Lawn Maintenance"),
+    ("Need help planting flowers", "Gardening", "Low", "Plant Care"),
+    ("Please plant some flowers in my garden", "Gardening", "Low", "Plant Care"),
+    ("My plants need care", "Gardening", "Low", "Plant Care"),
+    ("Plants are drying out", "Gardening", "Medium", "Plant Care"),
+    ("Need help trimming garden plants", "Gardening", "Low", "Garden Maintenance"),
+    ("Trees need pruning", "Gardening", "Medium", "Tree Pruning"),
+    ("Please trim the bushes", "Gardening", "Low", "Garden Maintenance"),
+    ("Garden is overgrown", "Gardening", "Low", "Garden Maintenance"),
+    ("Need someone to clean my garden", "Gardening", "Low", "Garden Maintenance"),
+    ("Mere garden ki maintenance chahiye", "Gardening", "Low", "Garden Maintenance"),
+    ("Plants ki care karwani hai", "Gardening", "Low", "Plant Care"),
+    ("Lawn bahut bada ho gaya hai", "Gardening", "Low", "Lawn Maintenance"),
+    ("Garden mein plants lagwane hain", "Gardening", "Low", "Plant Care"),
+    ("Ped ki branches trim karni hain", "Gardening", "Medium", "Tree Pruning"),
+    ("Need a gardener for my lawn", "Gardening", "Low", "Lawn Maintenance"),
+    ("Please water and maintain my plants", "Gardening", "Low", "Plant Care"),
+    ("Garden needs trimming", "Gardening", "Low", "Garden Maintenance"),
+    ("Need help with overgrown bushes", "Gardening", "Low", "Garden Maintenance"),
+    ("My plants are not healthy", "Gardening", "Medium", "Plant Care"),
+    ("Need someone to prune a tree", "Gardening", "Medium", "Tree Pruning"),
+    ("Please maintain the backyard garden", "Gardening", "Low", "Garden Maintenance"),
+    ("Need lawn cutting service", "Gardening", "Low", "Lawn Maintenance"),
+    ("Help me take care of my plants", "Gardening", "Low", "Plant Care"),
+    ("Need garden cleanup", "Gardening", "Low", "Garden Maintenance"),
+]
+
+rows.extend(gardening_examples)
+
+
+# ---------------------------------------------------------
+# GENERAL REPAIRS
+# ---------------------------------------------------------
+
+general_examples = [
+    ("I need someone to fix a few things at home", "General Repairs", "Medium", "General Repair"),
+    ("Something in my house needs repairing", "General Repairs", "Medium", "General Repair"),
+    ("Need help with a small home repair", "General Repairs", "Low", "General Repair"),
+    ("My wall has a damaged section", "General Repairs", "Medium", "General Repair"),
+    ("Need someone to fix a broken door handle", "General Repairs", "Medium", "General Repair"),
+    ("Door handle is loose", "General Repairs", "Medium", "General Repair"),
+    ("My curtain rod has fallen", "General Repairs", "Low", "General Repair"),
+    ("Need help fixing a curtain rod", "General Repairs", "Low", "General Repair"),
+    ("Bathroom mirror needs mounting", "General Repairs", "Low", "General Repair"),
+    ("Please mount a mirror on my wall", "General Repairs", "Low", "General Repair"),
+    ("Need someone to fix a loose cabinet handle", "General Repairs", "Low", "General Repair"),
+    ("My cabinet handle is broken", "General Repairs", "Medium", "General Repair"),
+    ("Need help assembling a small household item", "General Repairs", "Low", "General Repair"),
+    ("Something is broken at home and I need help", "General Repairs", "Medium", "General Repair"),
+    ("Mere ghar mein chhota repair ka kaam hai", "General Repairs", "Low", "General Repair"),
+    ("Door handle loose hai", "General Repairs", "Medium", "General Repair"),
+    ("Mirror wall pe lagwana hai", "General Repairs", "Low", "General Repair"),
+    ("Curtain rod fix karna hai", "General Repairs", "Low", "General Repair"),
+    ("Ghar mein kuch repair ka kaam hai", "General Repairs", "Medium", "General Repair"),
+    ("Need a handyman for some household repairs", "General Repairs", "Medium", "General Repair"),
+    ("Please fix a loose door handle", "General Repairs", "Medium", "General Repair"),
+    ("Need help mounting a wall mirror", "General Repairs", "Low", "General Repair"),
+    ("A cabinet handle came off", "General Repairs", "Low", "General Repair"),
+    ("Need someone for miscellaneous home repairs", "General Repairs", "Medium", "General Repair"),
+    ("Help with a small repair around the house", "General Repairs", "Low", "General Repair"),
+    ("Need a handyman today", "General Repairs", "Medium", "General Repair"),
+    ("Several small things need fixing at home", "General Repairs", "Medium", "General Repair"),
+    ("Please repair a loose handle", "General Repairs", "Low", "General Repair"),
+    ("I need basic household maintenance", "General Repairs", "Low", "General Repair"),
+    ("Can someone help with a home repair", "General Repairs", "Medium", "General Repair"),
+]
+
+rows.extend(general_examples)
+
+
+# ---------------------------------------------------------
+# VALIDATION
+# ---------------------------------------------------------
+
+if not rows:
+    raise ValueError("Dataset is empty.")
+
+texts = [row[0].strip() for row in rows]
+
+if len(texts) != len(set(texts)):
+    duplicates = len(texts) - len(set(texts))
+    raise ValueError(
+        f"Found {duplicates} duplicate text examples."
+    )
+
+
+for index, row in enumerate(rows, start=1):
+
+    if len(row) != 4:
+        raise ValueError(
+            f"Row {index} must contain exactly 4 values."
+        )
+
+    text, service, urgency, required_skill = row
+
+    if not text.strip():
+        raise ValueError(
+            f"Row {index} has empty text."
+        )
+
+    if service not in VALID_SERVICES:
+        raise ValueError(
+            f"Row {index} has invalid service: {service!r}"
+        )
+
+    if urgency not in VALID_URGENCY:
+        raise ValueError(
+            f"Row {index} has invalid urgency: {urgency!r}"
+        )
+
+    if not required_skill.strip():
+        raise ValueError(
+            f"Row {index} has empty required_skill."
+        )
+
+
+# ---------------------------------------------------------
+# WRITE CSV
+# ---------------------------------------------------------
+
+OUT_PATH.parent.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+with OUT_PATH.open(
+    "w",
+    newline="",
+    encoding="utf-8"
+) as f:
+
+    writer = csv.writer(f)
+
+    writer.writerow(EXPECTED_COLUMNS)
+
+    writer.writerows(rows)
+
+
+# ---------------------------------------------------------
+# REPORT
+# ---------------------------------------------------------
+
+service_counts = Counter(
+    row[1] for row in rows
+)
+
+urgency_counts = Counter(
+    row[2] for row in rows
+)
+
+skill_counts = Counter(
+    row[3] for row in rows
+)
+
+
+print()
+print("=" * 50)
+print("VEYRA DATASET GENERATED")
+print("=" * 50)
+print()
+
+print(f"Total examples: {len(rows)}")
+print()
+
+print("Service distribution:")
+
+for service, count in sorted(service_counts.items()):
+    print(f"  {service}: {count}")
+
+print()
+
+print("Urgency distribution:")
+
+for urgency, count in sorted(urgency_counts.items()):
+    print(f"  {urgency}: {count}")
+
+print()
+
+print("Skill distribution:")
+
+for skill, count in sorted(skill_counts.items()):
+    print(f"  {skill}: {count}")
+
+print()
+
+print(f"CSV file created at:")
+print(OUT_PATH)
+
+print()
+
+print("Exact duplicate texts: 0")
+print("Dataset validation: PASSED")
+print()
+print("=" * 50)
+

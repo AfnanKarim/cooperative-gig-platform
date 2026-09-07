@@ -8,6 +8,9 @@ from google import genai
 from pydantic import BaseModel, Field
 
 from matching import WORKERS, calculate_worker_score
+from ml.local_analyzer import analyze_locally
+
+
 
 
 # Load environment variables
@@ -149,6 +152,11 @@ Keep the output concise and practical.
         return response.parsed
 
     except Exception:
+        local_result = analyze_locally(request.description)
+
+        if local_result is not None:
+            return ServiceAnalysis(**local_result)
+
         description = request.description.lower()
 
         if any(word in description for word in ["fan", "switch", "socket", "wire", "light", "electric"]):
