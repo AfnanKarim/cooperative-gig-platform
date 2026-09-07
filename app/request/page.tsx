@@ -10,6 +10,15 @@ const examples = [
   "I need help assembling a wooden study table.",
 ];
 
+const SERVICE_PRICES: Record<string, number> = {
+  Electrical: 350,
+  Plumbing: 400,
+  Carpentry: 500,
+  Cleaning: 450,
+  Gardening: 350,
+  "General Repairs": 400,
+};
+
 type AnalysisResult = {
   service: string;
   issue: string;
@@ -47,9 +56,14 @@ export default function RequestPage() {
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [scheduledAt, setScheduledAt] = useState("");
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [bookingPrice, setBookingPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const getServicePrice = (service: string) => {
+    return SERVICE_PRICES[service] ?? 400;
+  };
 
   const analyzeRequest = async () => {
     if (!description.trim()) return;
@@ -60,6 +74,7 @@ export default function RequestPage() {
     setWorkers([]);
     setSelectedWorker(null);
     setBooking(null);
+    setBookingPrice(null);
 
     try {
       const analyzeResponse = await fetch(`${API_URL}/analyze`, {
@@ -109,6 +124,7 @@ export default function RequestPage() {
   const selectWorker = (worker: Worker) => {
     setSelectedWorker(worker);
     setBooking(null);
+    setBookingPrice(null);
     setError("");
 
     setTimeout(() => {
@@ -125,6 +141,8 @@ export default function RequestPage() {
 
     setBookingLoading(true);
     setError("");
+
+    const price = getServicePrice(result.service);
 
     try {
       const response = await fetch(`${API_URL}/bookings`, {
@@ -148,6 +166,7 @@ export default function RequestPage() {
       const data = await response.json();
 
       setBooking(data.booking);
+      setBookingPrice(price);
       setScheduledAt("");
     } catch (err) {
       console.error(err);
@@ -161,6 +180,10 @@ export default function RequestPage() {
       setBookingLoading(false);
     }
   };
+
+  const selectedServicePrice = result
+    ? getServicePrice(result.service)
+    : null;
 
   return (
     <main className="min-h-screen bg-[#f8faf9] text-slate-900">
@@ -235,6 +258,7 @@ export default function RequestPage() {
                 setWorkers([]);
                 setSelectedWorker(null);
                 setBooking(null);
+                setBookingPrice(null);
                 setError("");
               }}
               placeholder="Example: My ceiling fan has stopped working and makes a strange noise..."
@@ -258,6 +282,7 @@ export default function RequestPage() {
                       setWorkers([]);
                       setSelectedWorker(null);
                       setBooking(null);
+                      setBookingPrice(null);
                       setError("");
                     }}
                     className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-left text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -365,6 +390,25 @@ export default function RequestPage() {
                 </p>
               </div>
             </div>
+
+            {/* Estimated price */}
+            {selectedServicePrice !== null && (
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    Estimated service price
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-600">
+                    Basic service rate for {result.service.toLowerCase()}.
+                  </p>
+                </div>
+
+                <p className="text-2xl font-bold text-slate-950">
+                  ₹{selectedServicePrice}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -541,6 +585,52 @@ export default function RequestPage() {
               </div>
             </div>
 
+            {/* Price + payment */}
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Estimated price
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-950">
+                  ₹{selectedServicePrice}
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Basic service rate
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Payment method
+                </p>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    ₹
+                  </div>
+
+                  <p className="font-bold text-slate-950">
+                    Cash on Delivery
+                  </p>
+                </div>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Pay the worker after the service.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+              <p className="text-xs leading-5 text-slate-600">
+                This is an estimated basic-service price. Complex or
+                additional work may require a revised price after the worker
+                assesses the task.
+              </p>
+            </div>
+
+            {/* Date and time */}
             <div className="mt-6">
               <label
                 htmlFor="scheduled-at"
@@ -566,7 +656,10 @@ export default function RequestPage() {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={() => setSelectedWorker(null)}
+                onClick={() => {
+                  setSelectedWorker(null);
+                  setBookingPrice(null);
+                }}
                 className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Choose another worker
@@ -578,7 +671,9 @@ export default function RequestPage() {
                 onClick={confirmBooking}
                 className="flex-1 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {bookingLoading ? "Confirming booking..." : "Confirm booking"}
+                {bookingLoading
+                  ? "Confirming booking..."
+                  : `Confirm booking · ₹${selectedServicePrice}`}
               </button>
             </div>
           </div>
@@ -607,6 +702,27 @@ export default function RequestPage() {
                 </p>
               </div>
             </div>
+
+            {/* Final price */}
+            {bookingPrice !== null && (
+              <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Total estimated price
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-600">
+                      Payment method: Cash on Delivery
+                    </p>
+                  </div>
+
+                  <p className="text-3xl font-bold text-slate-950">
+                    ₹{bookingPrice}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
@@ -641,6 +757,16 @@ export default function RequestPage() {
 
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Payment
+                </p>
+
+                <p className="mt-1 font-semibold text-slate-900">
+                  Cash on Delivery
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Status
                 </p>
 
@@ -650,11 +776,17 @@ export default function RequestPage() {
               </div>
             </div>
 
+            <p className="mt-5 text-xs leading-5 text-slate-400">
+              Final pricing may vary if additional or complex work is
+              required after assessment.
+            </p>
+
             <button
               type="button"
               onClick={() => {
                 setBooking(null);
                 setSelectedWorker(null);
+                setBookingPrice(null);
               }}
               className="mt-6 w-full rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
