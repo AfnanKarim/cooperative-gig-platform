@@ -136,18 +136,59 @@ Examples:
 
 Keep the output concise and practical.
 """
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": ServiceAnalysis,
+            },
+        )
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": ServiceAnalysis,
-        },
-    )
+        return response.parsed
 
-    return response.parsed
+    except Exception:
+        description = request.description.lower()
 
+        if any(word in description for word in ["fan", "switch", "socket", "wire", "light", "electric"]):
+            return ServiceAnalysis(
+                service="Electrical",
+                issue=request.description,
+                urgency="Medium",
+                required_skill="Electrical Repair",
+            )
+
+        if any(word in description for word in ["leak", "pipe", "tap", "sink", "water", "drain"]):
+            return ServiceAnalysis(
+                service="Plumbing",
+                issue=request.description,
+                urgency="Medium",
+                required_skill="Plumbing",
+            )
+
+        if any(word in description for word in ["table", "chair", "door", "wood", "furniture"]):
+            return ServiceAnalysis(
+                service="Carpentry",
+                issue=request.description,
+                urgency="Medium",
+                required_skill="Furniture Assembly",
+            )
+
+        if any(word in description for word in ["clean", "dust", "mop", "house"]):
+            return ServiceAnalysis(
+                service="Cleaning",
+                issue=request.description,
+                urgency="Low",
+                required_skill="House Cleaning",
+            )
+
+        return ServiceAnalysis(
+            service="General Repairs",
+            issue=request.description,
+            urgency="Medium",
+            required_skill="General Repair",
+        )
 
 # -------------------------
 # Worker skill normalization
