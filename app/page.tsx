@@ -180,13 +180,22 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Main CTA */}
-          <a
-            href="/request"
-            className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800"
-          >
-            Find a Service
-          </a>
+          {/* Main actions */}
+          <div className="flex items-center gap-3">
+            <a
+              href="/login"
+              className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            >
+              Log in
+            </a>
+
+            <a
+              href="/request"
+              className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800"
+            >
+              Find a Service
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -316,7 +325,6 @@ export default function Home() {
       ========================================================= */}
       <section id="services" className="bg-slate-50 px-6 py-20 md:py-24">
         <div className="mx-auto max-w-7xl">
-          {/* Section heading */}
           <div className="mb-12 max-w-2xl">
             <p className="text-sm font-bold tracking-[0.15em] text-emerald-600">
               SERVICES
@@ -332,7 +340,6 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Service cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => (
               <a
@@ -385,7 +392,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Steps */}
         <div className="mt-14 grid gap-10 md:grid-cols-4">
           {steps.map((step) => (
             <div key={step.number} className="relative">
@@ -418,7 +424,6 @@ export default function Home() {
       >
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-12 md:grid-cols-[1.4fr_1fr] md:items-center">
-            {/* Copy */}
             <div>
               <p className="text-sm font-bold tracking-[0.15em] text-emerald-400">
                 THE COOPERATIVE DIFFERENCE
@@ -436,7 +441,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Cooperative principles */}
             <div className="grid gap-3">
               <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <div className="flex items-center gap-3">
