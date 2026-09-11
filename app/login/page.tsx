@@ -16,6 +16,23 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  function validateEmail(value: string) {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return "Please enter your email address.";
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    if (!emailPattern.test(trimmed)) {
+      return "Please enter a valid email address.";
+    }
+
+    return "";
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +45,18 @@ export default function LoginPage() {
     if (!normalizedEmail || !password) {
       setErrorMessage("Please enter your email and password.");
       return;
+    }
+
+    // Validate email format before sending anything to Supabase
+    if (mode === "signup") {
+      const validationError = validateEmail(normalizedEmail);
+
+      if (validationError) {
+        setEmailError(validationError);
+        return;
+      }
+
+      setEmailError("");
     }
 
     setIsSubmitting(true);
@@ -81,6 +110,7 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setErrorMessage("");
     setSuccessMessage("");
+    setEmailError("");
     setIsSubmitting(true);
 
     try {
@@ -175,6 +205,7 @@ export default function LoginPage() {
                   setMode("login");
                   setErrorMessage("");
                   setSuccessMessage("");
+                  setEmailError("");
                 }}
                 className={`border-b-2 py-3 text-sm font-medium transition ${
                   isLogin
@@ -191,6 +222,7 @@ export default function LoginPage() {
                   setMode("signup");
                   setErrorMessage("");
                   setSuccessMessage("");
+                  setEmailError("");
                 }}
                 className={`border-b-2 py-3 text-sm font-medium transition ${
                   !isLogin
@@ -262,11 +294,35 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setEmail(value);
+
+                    if (mode === "signup") {
+                      setEmailError(validateEmail(value));
+                    } else {
+                      setEmailError("");
+                    }
+                  }}
+                  onBlur={() => {
+                    if (mode === "signup") {
+                      setEmailError(validateEmail(email));
+                    }
+                  }}
                   placeholder="you@example.com"
                   required
-                  className="h-12 w-full border border-slate-300 bg-white px-4 text-base outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950"
+                  className={`h-12 w-full border bg-white px-4 text-base outline-none transition placeholder:text-slate-400 focus:ring-1 ${
+                    emailError
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                      : "border-slate-300 focus:border-slate-950 focus:ring-slate-950"
+                  }`}
                 />
+
+                {mode === "signup" && emailError && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    {emailError}
+                  </p>
+                )}
               </div>
 
               <div>

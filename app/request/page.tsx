@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "../lib/supabase/client";
 
 const API_URL = "https://veyra-backend-aydx.onrender.com";
 
@@ -50,6 +52,11 @@ type Booking = {
 };
 
 export default function RequestPage() {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [description, setDescription] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -60,6 +67,34 @@ export default function RequestPage() {
   const [loading, setLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Protect this page.
+  // Only logged-in users can access the service request workflow.
+  useEffect(() => {
+    let active = true;
+
+    async function checkAuth() {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+
+      if (authError || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      setAuthChecking(false);
+    }
+
+    checkAuth();
+
+    return () => {
+      active = false;
+    };
+  }, [router, supabase]);
 
   const getServicePrice = (service: string) => {
     return SERVICE_PRICES[service] ?? 400;
@@ -184,6 +219,27 @@ export default function RequestPage() {
   const selectedServicePrice = result
     ? getServicePrice(result.service)
     : null;
+
+  // Show a loading screen while checking Supabase authentication.
+  if (authChecking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f8faf9] px-6 text-slate-900">
+        <div className="text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-700">
+            ✦
+          </div>
+
+          <h1 className="mt-5 text-xl font-bold text-slate-950">
+            Checking your account...
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please wait a moment.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f8faf9] text-slate-900">
