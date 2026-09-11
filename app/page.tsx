@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import MapWrapper from "./components/MapWrapper";
 import VeyraMatching from "./components/VeyraMatching";
+import { createClient } from "./lib/supabase/client";
 
 const services = [
   {
@@ -61,6 +65,75 @@ const steps = [
 ];
 
 export default function Home() {
+  const supabase = useMemo(() => createClient(), []);
+
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          if (isMounted) {
+            setFirstName(null);
+            setIsLoadingProfile(false);
+          }
+          return;
+        }
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Homepage profile error:", error.message);
+        }
+
+        if (!isMounted) return;
+
+        const profileName = profile?.full_name?.trim();
+
+        if (profileName) {
+          setFirstName(profileName.split(/\s+/)[0]);
+        } else {
+          const metadataName =
+            typeof user.user_metadata?.full_name === "string"
+              ? user.user_metadata.full_name.trim()
+              : "";
+
+          setFirstName(
+            metadataName ? metadataName.split(/\s+/)[0] : null
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Homepage account error:",
+          error instanceof Error ? error.message : String(error)
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
+
+  const isLoggedIn = Boolean(firstName);
+
   return (
     <main className="min-h-screen bg-white text-slate-900">
       {/* =========================================================
@@ -124,27 +197,51 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 py-16 md:grid-cols-2 md:gap-20 md:py-24">
           {/* Hero copy */}
           <div>
-            {/* Status badge */}
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-              Trusted local services · Powered by cooperation
-            </div>
+            {/* Personalized greeting */}
+            {isLoggedIn ? (
+              <div className="mb-6">
+                <p className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                  Hi {firstName} 👋
+                </p>
 
-            {/* Heading */}
-            <h1 className="max-w-3xl text-5xl font-bold leading-[1.04] tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
-              Get the right help.
-              <br />
-              <span className="text-emerald-600">
-                Support local workers.
-              </span>
-            </h1>
+                <h1 className="mt-3 max-w-3xl text-5xl font-bold leading-[1.04] tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
+                  What service do
+                  <br />
+                  <span className="text-emerald-600">
+                    you need today?
+                  </span>
+                </h1>
 
-            {/* Description */}
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-600">
-              Find verified local professionals for everyday services.
-              Veyra understands what you need and connects you with
-              suitable workers through fair, intelligent matching.
-            </p>
+                <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-600">
+                  Tell Veyra what you need in your own words. Our AI
+                  understands the problem and connects you with suitable
+                  local workers through fair, intelligent matching.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Status badge */}
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                  Trusted local services · Powered by cooperation
+                </div>
+
+                {/* Original public heading */}
+                <h1 className="max-w-3xl text-5xl font-bold leading-[1.04] tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
+                  Get the right help.
+                  <br />
+                  <span className="text-emerald-600">
+                    Support local workers.
+                  </span>
+                </h1>
+
+                <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-600">
+                  Find verified local professionals for everyday services.
+                  Veyra understands what you need and connects you with
+                  suitable workers through fair, intelligent matching.
+                </p>
+              </>
+            )}
 
             {/* CTA buttons */}
             <div className="mt-9 flex flex-wrap gap-4">
