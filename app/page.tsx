@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
+
 import MapWrapper from "./components/MapWrapper";
 import VeyraMatching from "./components/VeyraMatching";
 import { createClient } from "./lib/supabase/client";
@@ -66,31 +69,40 @@ const steps = [
 
 export default function Home() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
 
+  const [user, setUser] = useState<User | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
+  /*
+   * Load the authenticated user's profile.
+   *
+   * The Supabase Auth user is the source of truth for login state.
+   * The profiles table is only used for displaying the user's name.
+   */
   useEffect(() => {
     let isMounted = true;
 
-    async function loadProfile() {
+    async function loadProfile(currentUser: User | null) {
+      if (!isMounted) return;
+
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setFirstName(null);
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      setIsLoadingProfile(true);
+
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          if (isMounted) {
-            setFirstName(null);
-            setIsLoadingProfile(false);
-          }
-          return;
-        }
-
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", user.id)
+          .eq("id", currentUser.id)
           .maybeSingle();
 
         if (error) {
@@ -103,21 +115,26 @@ export default function Home() {
 
         if (profileName) {
           setFirstName(profileName.split(/\s+/)[0]);
-        } else {
-          const metadataName =
-            typeof user.user_metadata?.full_name === "string"
-              ? user.user_metadata.full_name.trim()
-              : "";
-
-          setFirstName(
-            metadataName ? metadataName.split(/\s+/)[0] : null
-          );
+          return;
         }
+
+        const metadataName =
+          typeof currentUser.user_metadata?.full_name === "string"
+            ? currentUser.user_metadata.full_name.trim()
+            : "";
+
+        setFirstName(
+          metadataName ? metadataName.split(/\s+/)[0] : null
+        );
       } catch (error) {
         console.error(
           "Homepage account error:",
           error instanceof Error ? error.message : String(error)
         );
+
+        if (isMounted) {
+          setFirstName(null);
+        }
       } finally {
         if (isMounted) {
           setIsLoadingProfile(false);
@@ -125,14 +142,99 @@ export default function Home() {
       }
     }
 
-    loadProfile();
+    async function initializeAuth() {
+      try {
+        const {
+          data: { user: currentUser },
+          error,
+        } = await supabase.auth.getUser();
+
+        /*
+         * A missing session is normal when the visitor is logged out.
+         * Do not treat it as a console error.
+         */
+        if (error) {
+          if (error.message === "Auth session missing!") {
+            await loadProfile(null);
+            return;
+          }
+
+          console.error("Homepage auth error:", error.message);
+          await loadProfile(null);
+          return;
+        }
+
+        await loadProfile(currentUser);
+      } catch (error) {
+        console.error(
+          "Homepage auth initialization error:",
+          error instanceof Error ? error.message : String(error)
+        );
+
+        if (isMounted) {
+          setUser(null);
+          setFirstName(null);
+          setIsLoadingProfile(false);
+        }
+      }
+    }
+
+    initializeAuth();
+
+    /*
+     * Keep the navbar synchronized with Supabase authentication.
+     *
+     * Log in  → Log out
+     * Log out → Log in
+     *
+     * without requiring a page refresh.
+     */
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user ?? null;
+
+      void loadProfile(currentUser);
+    });
 
     return () => {
       isMounted = false;
+      subscription.unsubscribe();
     };
   }, [supabase]);
 
-  const isLoggedIn = Boolean(firstName);
+  const isLoggedIn = Boolean(user);
+
+  async function handleLogout() {
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout error:", error.message);
+        return;
+      }
+
+      /*
+       * The auth state listener will also update these values.
+       * Clearing them here gives the UI an immediate response.
+       */
+      setUser(null);
+      setFirstName(null);
+
+      router.replace("/");
+    } catch (error) {
+      console.error(
+        "Unexpected logout error:",
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -182,12 +284,23 @@ export default function Home() {
 
           {/* Main actions */}
           <div className="flex items-center gap-3">
-            <a
-              href="/login"
-              className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
-            >
-              Log in
-            </a>
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isSigningOut}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSigningOut ? "Logging out..." : "Log out"}
+              </button>
+            ) : (
+              <a
+                href="/login"
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+              >
+                Log in
+              </a>
+            )}
 
             <a
               href="/request"
@@ -210,7 +323,7 @@ export default function Home() {
             {isLoggedIn ? (
               <div className="mb-6">
                 <p className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-                  Hi {firstName} 👋
+                  Hi {firstName ?? "there"} 👋
                 </p>
 
                 <h1 className="mt-3 max-w-3xl text-5xl font-bold leading-[1.04] tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
