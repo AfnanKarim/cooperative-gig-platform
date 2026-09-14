@@ -6,6 +6,19 @@ const VeyraMap = dynamic(() => import("./Map"), {
   ssr: false,
 });
 
-export default function MapWrapper() {
-  return <VeyraMap />;
+type MapWrapperProps = {
+  city?: string | null;
+  pinCode?: string | null;
+};
+
+export default function MapWrapper({
+  city,
+  pinCode,
+}: MapWrapperProps) {
+  return (
+    <VeyraMap
+      city={city}
+      pinCode={pinCode}
+    />
+  );
 }

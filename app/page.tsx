@@ -73,6 +73,11 @@ export default function Home() {
 
   const [user, setUser] = useState<User | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
+
+  // User location used by the map.
+  const [city, setCity] = useState<string | null>(null);
+  const [pinCode, setPinCode] = useState<string | null>(null);
+
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -80,7 +85,8 @@ export default function Home() {
    * Load the authenticated user's profile.
    *
    * The Supabase Auth user is the source of truth for login state.
-   * The profiles table is only used for displaying the user's name.
+   * The profiles table provides the user's name and service-area
+   * information used by the homepage map.
    */
   useEffect(() => {
     let isMounted = true;
@@ -92,6 +98,8 @@ export default function Home() {
 
       if (!currentUser) {
         setFirstName(null);
+        setCity(null);
+        setPinCode(null);
         setIsLoadingProfile(false);
         return;
       }
@@ -101,7 +109,7 @@ export default function Home() {
       try {
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, city, pin_code")
           .eq("id", currentUser.id)
           .maybeSingle();
 
@@ -111,29 +119,66 @@ export default function Home() {
 
         if (!isMounted) return;
 
-        const profileName = profile?.full_name?.trim();
+        /*
+         * Read the user's saved service area.
+         *
+         * Convert everything to clean strings before sending
+         * the values to the map.
+         */
+        const profileCity =
+          typeof profile?.city === "string"
+            ? profile.city.trim()
+            : "";
+
+        const profilePinCode =
+          typeof profile?.pin_code === "string"
+            ? profile.pin_code.trim()
+            : "";
+
+        setCity(profileCity || null);
+        setPinCode(profilePinCode || null);
+
+        /*
+         * Load the user's name.
+         */
+        const profileName =
+          typeof profile?.full_name === "string"
+            ? profile.full_name.trim()
+            : "";
 
         if (profileName) {
-          setFirstName(profileName.split(/\s+/)[0]);
+          setFirstName(
+            profileName.split(/\s+/)[0]
+          );
           return;
         }
 
+        /*
+         * Fallback to Supabase Auth metadata if the
+         * profiles table does not contain a name.
+         */
         const metadataName =
           typeof currentUser.user_metadata?.full_name === "string"
             ? currentUser.user_metadata.full_name.trim()
             : "";
 
         setFirstName(
-          metadataName ? metadataName.split(/\s+/)[0] : null
+          metadataName
+            ? metadataName.split(/\s+/)[0]
+            : null
         );
       } catch (error) {
         console.error(
           "Homepage account error:",
-          error instanceof Error ? error.message : String(error)
+          error instanceof Error
+            ? error.message
+            : String(error)
         );
 
         if (isMounted) {
           setFirstName(null);
+          setCity(null);
+          setPinCode(null);
         }
       } finally {
         if (isMounted) {
@@ -154,12 +199,19 @@ export default function Home() {
          * Do not treat it as a console error.
          */
         if (error) {
-          if (error.message === "Auth session missing!") {
+          if (
+            error.message ===
+            "Auth session missing!"
+          ) {
             await loadProfile(null);
             return;
           }
 
-          console.error("Homepage auth error:", error.message);
+          console.error(
+            "Homepage auth error:",
+            error.message
+          );
+
           await loadProfile(null);
           return;
         }
@@ -168,34 +220,42 @@ export default function Home() {
       } catch (error) {
         console.error(
           "Homepage auth initialization error:",
-          error instanceof Error ? error.message : String(error)
+          error instanceof Error
+            ? error.message
+            : String(error)
         );
 
         if (isMounted) {
           setUser(null);
           setFirstName(null);
+          setCity(null);
+          setPinCode(null);
           setIsLoadingProfile(false);
         }
       }
     }
 
-    initializeAuth();
+    void initializeAuth();
 
     /*
-     * Keep the navbar synchronized with Supabase authentication.
+     * Keep the navbar and profile information synchronized
+     * with Supabase authentication.
      *
-     * Log in  → Log out
-     * Log out → Log in
+     * Log in  → profile + map location load
+     * Log out → profile + map location clear
      *
      * without requiring a page refresh.
      */
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const currentUser = session?.user ?? null;
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const currentUser =
+          session?.user ?? null;
 
-      void loadProfile(currentUser);
-    });
+        void loadProfile(currentUser);
+      }
+    );
 
     return () => {
       isMounted = false;
@@ -211,10 +271,14 @@ export default function Home() {
     setIsSigningOut(true);
 
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } =
+        await supabase.auth.signOut();
 
       if (error) {
-        console.error("Logout error:", error.message);
+        console.error(
+          "Logout error:",
+          error.message
+        );
         return;
       }
 
@@ -224,12 +288,16 @@ export default function Home() {
        */
       setUser(null);
       setFirstName(null);
+      setCity(null);
+      setPinCode(null);
 
       router.replace("/");
     } catch (error) {
       console.error(
         "Unexpected logout error:",
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error
+          ? error.message
+          : String(error)
       );
     } finally {
       setIsSigningOut(false);
@@ -291,7 +359,9 @@ export default function Home() {
                 disabled={isSigningOut}
                 className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSigningOut ? "Logging out..." : "Log out"}
+                {isSigningOut
+                  ? "Logging out..."
+                  : "Log out"}
               </button>
             ) : (
               <a
@@ -406,7 +476,11 @@ export default function Home() {
           ===================================================== */}
           <div className="relative mx-auto w-full max-w-xl">
             <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-100 shadow-2xl shadow-slate-200/70">
-              <MapWrapper />
+              <MapWrapper
+                city={city}
+                pinCode={pinCode}
+              />
+
               <VeyraMatching />
             </div>
 
@@ -436,7 +510,10 @@ export default function Home() {
       {/* =========================================================
           SERVICES
       ========================================================= */}
-      <section id="services" className="bg-slate-50 px-6 py-20 md:py-24">
+      <section
+        id="services"
+        className="bg-slate-50 px-6 py-20 md:py-24"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 max-w-2xl">
             <p className="text-sm font-bold tracking-[0.15em] text-emerald-600">
@@ -507,7 +584,10 @@ export default function Home() {
 
         <div className="mt-14 grid gap-10 md:grid-cols-4">
           {steps.map((step) => (
-            <div key={step.number} className="relative">
+            <div
+              key={step.number}
+              className="relative"
+            >
               <div className="text-sm font-bold text-emerald-600">
                 {step.number}
               </div>
@@ -562,7 +642,10 @@ export default function Home() {
                   </span>
 
                   <div>
-                    <p className="font-semibold">Verified workers</p>
+                    <p className="font-semibold">
+                      Verified workers
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-400">
                       Skills and profiles can be verified.
                     </p>
@@ -577,7 +660,10 @@ export default function Home() {
                   </span>
 
                   <div>
-                    <p className="font-semibold">Fair opportunities</p>
+                    <p className="font-semibold">
+                      Fair opportunities
+                    </p>
+
                     <p className="mt-1 text-sm text-slate-400">
                       Matching considers workload, not just ratings.
                     </p>
@@ -595,6 +681,7 @@ export default function Home() {
                     <p className="font-semibold">
                       Smarter workforce planning
                     </p>
+
                     <p className="mt-1 text-sm text-slate-400">
                       Demand insights help cooperatives plan ahead.
                     </p>
@@ -621,7 +708,9 @@ export default function Home() {
             </p>
           </div>
 
-          <p className="text-sm">© 2026 Veyra</p>
+          <p className="text-sm">
+            © 2026 Veyra
+          </p>
         </div>
       </footer>
     </main>
