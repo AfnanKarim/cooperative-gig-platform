@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../lib/supabase/client";
 
@@ -51,6 +51,46 @@ type Booking = {
   status: string;
 };
 
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+type SpeechRecognitionEvent = {
+  resultIndex: number;
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+      isFinal: boolean;
+      length: number;
+    };
+    length: number;
+  };
+};
+
+type SpeechRecognitionErrorEvent = {
+  error: string;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 export default function RequestPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -67,6 +107,10 @@ export default function RequestPage() {
   const [loading, setLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Voice input state
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   // Protect this page.
   // Only logged-in users can access the service request workflow.
@@ -96,8 +140,153 @@ export default function RequestPage() {
     };
   }, [router, supabase]);
 
+  // Clean up speech recognition if the user leaves the page.
+  useEffect(() => {
+    return () => {
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // Ignore cleanup errors.
+      }
+
+      recognitionRef.current = null;
+    };
+  }, []);
+
   const getServicePrice = (service: string) => {
     return SERVICE_PRICES[service] ?? 400;
+  };
+
+  const resetRequestResults = () => {
+    setResult(null);
+    setWorkers([]);
+    setSelectedWorker(null);
+    setBooking(null);
+    setBookingPrice(null);
+    setError("");
+  };
+
+  const handleDescriptionChange = (value: string) => {
+    setDescription(value);
+    resetRequestResults();
+  };
+
+  const toggleVoiceInput = () => {
+    // Stop an active recognition session.
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // Ignore stop errors.
+      }
+
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError(
+        "Voice input is not supported in this browser. Please use Google Chrome or Microsoft Edge."
+      );
+      return;
+    }
+
+    // Make sure any previous recognition instance is closed.
+    try {
+      recognitionRef.current?.abort();
+    } catch {
+      // Ignore abort errors.
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setError("");
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      const cleanedTranscript = transcript.trim();
+
+      if (cleanedTranscript) {
+        setDescription(cleanedTranscript);
+        resetRequestResults();
+      }
+    };
+
+    recognition.onerror = (event) => {
+      setIsListening(false);
+
+      // "aborted" normally happens when the user intentionally stops listening.
+      if (event.error === "aborted") {
+        return;
+      }
+
+      switch (event.error) {
+        case "not-allowed":
+        case "service-not-allowed":
+          setError(
+            "Microphone access was blocked. Please allow microphone access in your browser and try again."
+          );
+          break;
+
+        case "no-speech":
+          setError(
+            "No speech was detected. Please tap the microphone and try again."
+          );
+          break;
+
+        case "audio-capture":
+          setError(
+            "No microphone was detected. Please check your microphone and try again."
+          );
+          break;
+
+        case "network":
+          setError(
+            "Voice recognition needs a network connection. Please check your connection and try again."
+          );
+          break;
+
+        default:
+          setError(
+            "We couldn't process your voice input. Please try again."
+          );
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error("Speech recognition failed to start:", err);
+
+      setIsListening(false);
+      recognitionRef.current = null;
+
+      setError(
+        "We couldn't start voice input. Please check your microphone permissions and try again."
+      );
+    }
   };
 
   const analyzeRequest = async () => {
@@ -304,22 +493,66 @@ export default function RequestPage() {
               </span>
             </div>
 
-            <textarea
-              id="description"
-              value={description}
-              maxLength={500}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                setResult(null);
-                setWorkers([]);
-                setSelectedWorker(null);
-                setBooking(null);
-                setBookingPrice(null);
-                setError("");
-              }}
-              placeholder="Example: My ceiling fan has stopped working and makes a strange noise..."
-              className="mt-5 min-h-52 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/70 p-5 text-base leading-7 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-50"
-            />
+            {/* Description + voice input */}
+            <div className="relative mt-5">
+              <textarea
+                id="description"
+                value={description}
+                maxLength={500}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                placeholder="Example: My ceiling fan has stopped working and makes a strange noise..."
+                className="min-h-52 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/70 p-5 pr-16 text-base leading-7 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-50"
+              />
+
+              <button
+                type="button"
+                onClick={toggleVoiceInput}
+                aria-label={
+                  isListening ? "Stop voice input" : "Start voice input"
+                }
+                aria-pressed={isListening}
+                className={`absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus:ring-4 focus:ring-emerald-50 ${
+                  isListening
+                    ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                }`}
+              >
+                {isListening ? (
+                  <span
+                    className="flex h-3 w-3 rounded-sm bg-red-500"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Voice status */}
+            {isListening && (
+              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-700">
+                <span className="flex h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Listening... Speak clearly, then tap the stop button.
+              </div>
+            )}
 
             {/* Examples */}
             <div className="mt-5">
@@ -333,13 +566,7 @@ export default function RequestPage() {
                     key={example}
                     type="button"
                     onClick={() => {
-                      setDescription(example);
-                      setResult(null);
-                      setWorkers([]);
-                      setSelectedWorker(null);
-                      setBooking(null);
-                      setBookingPrice(null);
-                      setError("");
+                      handleDescriptionChange(example);
                     }}
                     className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-left text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                   >
@@ -370,7 +597,7 @@ export default function RequestPage() {
 
             <button
               type="button"
-              disabled={!description.trim() || loading}
+              disabled={!description.trim() || loading || isListening}
               onClick={analyzeRequest}
               className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
@@ -381,7 +608,10 @@ export default function RequestPage() {
 
         {/* Error */}
         {error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          <div
+            role="alert"
+            className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"
+          >
             {error}
           </div>
         )}
