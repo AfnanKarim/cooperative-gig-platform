@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from datetime import datetime
@@ -6,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
+from groq import Groq
 from pydantic import BaseModel, Field
 
 from matching import WORKERS, calculate_worker_score
@@ -19,11 +21,33 @@ from ml.local_analyzer import analyze_locally
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not configured.")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+if not GROQ_API_KEY:
+    raise RuntimeError("GROQ_API_KEY is not configured.")
+
+# Groq is intentionally the primary provider for low-latency analysis.
+# The model is kept here so no extra GROQ_MODEL environment variable is
+# required for the current deployment.
+GROQ_MODEL = "openai/gpt-oss-20b"
+
+# Explicit timeouts prevent a stalled provider from blocking the entire
+# request indefinitely. Fallbacks keep the service available.
+GROQ_TIMEOUT_SECONDS = 4.0
+GEMINI_TIMEOUT_SECONDS = 5.0
+
+gemini_client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options={"timeout": int(GEMINI_TIMEOUT_SECONDS * 1000)},
+)
+
+groq_client = Groq(
+    api_key=GROQ_API_KEY,
+    timeout=GROQ_TIMEOUT_SECONDS,
+)
 
 
 # ============================================================
@@ -607,81 +631,148 @@ def validate_and_correct_analysis(
 
 @app.post("/analyze", response_model=ServiceAnalysis)
 def analyze_request(request: ServiceRequest):
+    """
+    Analyze a service request using a fast, resilient provider chain:
+
+        1. Groq
+        2. Gemini
+        3. Local ML
+        4. Deterministic keyword fallback
+
+    The public API always returns the same ServiceAnalysis schema,
+    regardless of which provider succeeds.
+    """
+
     description = request.description.strip()
 
     prompt = f"""
 You are the service-understanding engine for Veyra, a cooperative
 platform connecting households with local service workers.
 
-Analyze the customer's request carefully.
+Analyze this customer request:
 
-Customer request:
 "{description}"
 
-Choose exactly one service category from:
+Choose exactly one category:
+Electrical, Plumbing, Carpentry, Cleaning, Gardening, General Repairs
 
-- Electrical
-- Plumbing
-- Carpentry
-- Cleaning
-- Gardening
-- General Repairs
+Rules:
+- Plants, gardening, lawn, grass, watering plants, trees, flowers,
+  pruning, or garden work -> Gardening.
+- Water leaks, pipes, taps, sinks, drains, or plumbing -> Plumbing.
+- Fans, switches, sockets, wiring, lights, electricity, or electrical
+  problems -> Electrical.
+- Wood, furniture, tables, chairs, doors, beds, cabinets, or carpentry
+  -> Carpentry.
+- Cleaning, dust, mopping, sweeping, or house cleaning -> Cleaning.
+- Use General Repairs only when no specific category clearly applies.
 
-Important rules:
-
-1. Use the customer's actual words and meaning.
-2. If the request mentions plants, gardening, lawn, grass,
-   watering plants, trees, flowers, pruning, or garden work,
-   choose Gardening.
-3. If the request mentions water leaks, pipes, taps, sinks,
-   drains, or plumbing, choose Plumbing.
-4. If the request mentions fans, switches, sockets, wiring,
-   lights, electricity, or electrical problems, choose Electrical.
-5. If the request mentions wood, furniture, tables, chairs,
-   doors, beds, cabinets, or carpentry, choose Carpentry.
-6. If the request is about cleaning, dust, mopping, sweeping,
-   or house cleaning, choose Cleaning.
-7. Use General Repairs only when the request does not clearly
-   belong to one of the specific categories.
-
-Return:
-
-- service: broad service category
-- issue: concise description of the customer's actual problem
-- urgency: Low, Medium, or High
-- required_skill: specific worker skill needed
+Return exactly:
+{{
+  "service": "one allowed category",
+  "issue": "concise description of the actual problem",
+  "urgency": "Low, Medium, or High",
+  "required_skill": "specific worker skill"
+}}
 
 Examples:
-
 "My ceiling fan stopped working"
--> Electrical
--> Ceiling Fan Repair
+-> Electrical / Ceiling Fan Repair
 
 "Water is leaking under my kitchen sink"
--> Plumbing
--> Pipe and Leak Repair
+-> Plumbing / Pipe and Leak Repair
 
 "Help me assemble a wooden study table"
--> Carpentry
--> Furniture Assembly
+-> Carpentry / Furniture Assembly
 
 "My plants need watering"
--> Gardening
--> Plant Care
+-> Gardening / Plant Care
 
 "My lawn needs trimming"
--> Gardening
--> Lawn and Garden Maintenance
+-> Gardening / Lawn and Garden Maintenance
 
 "Please clean my house"
--> Cleaning
--> House Cleaning
+-> Cleaning / House Cleaning
 
-Return only the structured response.
+Return JSON only.
 """
 
+    # ========================================================
+    # 1. GROQ — primary provider
+    # ========================================================
+
     try:
-        response = client.models.generate_content(
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Veyra's service classification engine. "
+                        "Return only valid JSON matching the requested schema."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "service_analysis",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "service": {
+                                "type": "string",
+                                "enum": [
+                                    "Electrical",
+                                    "Plumbing",
+                                    "Carpentry",
+                                    "Cleaning",
+                                    "Gardening",
+                                    "General Repairs",
+                                ],
+                            },
+                            "issue": {"type": "string"},
+                            "urgency": {
+                                "type": "string",
+                                "enum": ["Low", "Medium", "High"],
+                            },
+                            "required_skill": {"type": "string"},
+                        },
+                        "required": [
+                            "service",
+                            "issue",
+                            "urgency",
+                            "required_skill",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            temperature=0,
+        )
+
+        content = response.choices[0].message.content
+
+        if content:
+            analysis = ServiceAnalysis(**json.loads(content))
+            return validate_and_correct_analysis(description, analysis)
+
+    except Exception:
+        # Never expose provider failures to the user. Move immediately
+        # to the next available analysis layer.
+        pass
+
+    # ========================================================
+    # 2. GEMINI — secondary provider
+    # ========================================================
+
+    try:
+        response = gemini_client.models.generate_content(
             model="gemini-3.8-flash",
             contents=prompt,
             config={
@@ -692,18 +783,14 @@ Return only the structured response.
 
         if response.parsed is not None:
             analysis = ServiceAnalysis(**response.parsed)
-
-            # Never blindly trust the model's category.
-            return validate_and_correct_analysis(
-                description,
-                analysis,
-            )
+            return validate_and_correct_analysis(description, analysis)
 
     except Exception:
+        # Continue to the local model.
         pass
 
     # ========================================================
-    # Local ML fallback
+    # 3. LOCAL ML — offline fallback
     # ========================================================
 
     try:
@@ -711,17 +798,14 @@ Return only the structured response.
 
         if local_result is not None:
             analysis = ServiceAnalysis(**local_result)
-
-            return validate_and_correct_analysis(
-                description,
-                analysis,
-            )
+            return validate_and_correct_analysis(description, analysis)
 
     except Exception:
+        # Continue to deterministic rules.
         pass
 
     # ========================================================
-    # Deterministic fallback
+    # 4. DETERMINISTIC FALLBACK — always available
     # ========================================================
 
     detected_service = detect_obvious_service(description)
@@ -737,7 +821,6 @@ Return only the structured response.
             ),
         )
 
-    # Final safe fallback.
     return ServiceAnalysis(
         service="General Repairs",
         issue=description,
