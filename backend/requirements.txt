@@ -6,3 +6,4 @@ pydantic
 scikit-learn
 joblib
 pandas
+groq
