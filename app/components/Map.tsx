@@ -37,72 +37,59 @@ type NominatimResult = {
   address?: NominatimAddress;
 };
 
-const DEFAULT_POSITION: LatLngExpression = [
-  28.6139,
-  77.209,
-];
-
+const DEFAULT_POSITION: LatLngExpression = [28.6139, 77.209];
 const DEFAULT_ZOOM = 11;
 
 function MapController({
   coordinates,
+  onMovingChange,
 }: {
   coordinates: Coordinates | null;
+  onMovingChange: (moving: boolean) => void;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    if (coordinates === null) {
-      return;
-    }
+    if (coordinates === null) return;
 
-    map.flyTo(
-      [coordinates.lat, coordinates.lon],
-      14,
-      {
-        animate: true,
-        duration: 1.5,
-      }
-    );
-  }, [coordinates, map]);
+    onMovingChange(true);
+
+    map.flyTo([coordinates.lat, coordinates.lon], 14, {
+      animate: true,
+      duration: 1.5,
+    });
+
+    const timer = window.setTimeout(() => {
+      onMovingChange(false);
+    }, 1600);
+
+    return () => {
+      window.clearTimeout(timer);
+      onMovingChange(false);
+    };
+  }, [coordinates, map, onMovingChange]);
 
   return null;
 }
 
-export default function Map({
-  city,
-  pinCode,
-}: MapProps) {
-  const [coordinates, setCoordinates] =
-    useState<Coordinates | null>(null);
-
-  const [locationName, setLocationName] =
-    useState<string>("");
-
-  const [loading, setLoading] =
-    useState<boolean>(false);
+export default function Map({ city, pinCode }: MapProps) {
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [locationName, setLocationName] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
 
   useEffect(() => {
-    // IMPORTANT:
-    // These are ALWAYS strings.
-    const cityValue: string =
-      city == null ? "" : city.trim();
+    const cityValue: string = city == null ? "" : city.trim();
+    const pinCodeValue: string = pinCode == null ? "" : pinCode.trim();
 
-    const pinCodeValue: string =
-      pinCode == null ? "" : pinCode.trim();
-
-    if (
-      cityValue.length === 0 ||
-      pinCodeValue.length === 0
-    ) {
+    if (cityValue.length === 0 || pinCodeValue.length === 0) {
       setCoordinates(null);
       setLocationName("");
       setLoading(false);
       return;
     }
 
-    const controller =
-      new AbortController();
+    const controller = new AbortController();
 
     async function findLocation(): Promise<void> {
       setLoading(true);
@@ -111,10 +98,7 @@ export default function Map({
         const params = new URLSearchParams();
 
         params.set("city", cityValue);
-        params.set(
-          "postalcode",
-          pinCodeValue
-        );
+        params.set("postalcode", pinCodeValue);
         params.set("country", "India");
         params.set("countrycodes", "in");
         params.set("format", "jsonv2");
@@ -138,22 +122,12 @@ export default function Map({
           );
         }
 
-        const results =
-          (await response.json()) as NominatimResult[];
+        const results = (await response.json()) as NominatimResult[];
 
-        if (
-          !Array.isArray(results) ||
-          results.length === 0
-        ) {
-          console.warn(
-            "No location found:",
-            cityValue,
-            pinCodeValue
-          );
+        if (!Array.isArray(results) || results.length === 0) {
+          console.warn("No location found:", cityValue, pinCodeValue);
 
           setCoordinates(null);
-
-          // cityValue is guaranteed to be a string.
           setLocationName(cityValue);
 
           return;
@@ -161,21 +135,14 @@ export default function Map({
 
         const result = results[0];
 
-        const latitude = Number(
-          result.lat
-        );
-
-        const longitude = Number(
-          result.lon
-        );
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
 
         if (
           !Number.isFinite(latitude) ||
           !Number.isFinite(longitude)
         ) {
-          throw new Error(
-            "Invalid coordinates returned"
-          );
+          throw new Error("Invalid coordinates returned");
         }
 
         setCoordinates({
@@ -183,48 +150,37 @@ export default function Map({
           lon: longitude,
         });
 
-        const address =
-          result.address;
+        const address = result.address;
 
-        // Every possible API value is checked,
-        // with cityValue as the guaranteed fallback.
         let locality: string = cityValue;
 
         if (
           typeof address?.suburb === "string" &&
           address.suburb.trim() !== ""
         ) {
-          locality =
-            address.suburb.trim();
+          locality = address.suburb.trim();
         } else if (
-          typeof address?.neighbourhood ===
-            "string" &&
+          typeof address?.neighbourhood === "string" &&
           address.neighbourhood.trim() !== ""
         ) {
-          locality =
-            address.neighbourhood.trim();
+          locality = address.neighbourhood.trim();
         } else if (
           typeof address?.town === "string" &&
           address.town.trim() !== ""
         ) {
-          locality =
-            address.town.trim();
+          locality = address.town.trim();
         } else if (
-          typeof address?.village ===
-            "string" &&
+          typeof address?.village === "string" &&
           address.village.trim() !== ""
         ) {
-          locality =
-            address.village.trim();
+          locality = address.village.trim();
         } else if (
           typeof address?.city === "string" &&
           address.city.trim() !== ""
         ) {
-          locality =
-            address.city.trim();
+          locality = address.city.trim();
         }
 
-        // locality is ALWAYS a string.
         setLocationName(locality);
       } catch (error) {
         if (
@@ -234,19 +190,12 @@ export default function Map({
           return;
         }
 
-        console.error(
-          "Map location lookup error:",
-          error
-        );
+        console.error("Map location lookup error:", error);
 
         setCoordinates(null);
-
-        // Guaranteed string.
         setLocationName(cityValue);
       } finally {
-        if (
-          !controller.signal.aborted
-        ) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -254,30 +203,25 @@ export default function Map({
 
     void findLocation();
 
-    return () => {
-      controller.abort();
-    };
+    return () => controller.abort();
   }, [city, pinCode]);
 
   const markerPosition: LatLngExpression =
     coordinates === null
       ? DEFAULT_POSITION
-      : [
-          coordinates.lat,
-          coordinates.lon,
-        ];
+      : [coordinates.lat, coordinates.lon];
 
   const popupPinCode: string =
-    pinCode == null
-      ? ""
-      : pinCode.trim();
+    pinCode == null ? "" : pinCode.trim();
 
   return (
     <div
       style={{
         position: "relative",
         width: "100%",
-        height: "500px",
+        height: "560px",
+        overflow: "hidden",
+        borderRadius: "16px",
       }}
     >
       <MapContainer
@@ -297,15 +241,12 @@ export default function Map({
 
         <MapController
           coordinates={coordinates}
+          onMovingChange={setIsMoving}
         />
 
-        <Marker
-          position={markerPosition}
-        >
+        <Marker position={markerPosition}>
           <Popup>
-            <strong>
-              Your service area
-            </strong>
+            <strong>Your service area</strong>
 
             {locationName !== "" && (
               <>
@@ -324,6 +265,24 @@ export default function Map({
         </Marker>
       </MapContainer>
 
+      {/* Soft frosted transition while map moves */}
+      {isMoving && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 900,
+            pointerEvents: "none",
+            borderRadius: "16px",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+            background:
+              "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.32), rgba(255,255,255,0.12) 45%, rgba(255,255,255,0.04) 75%)",
+          }}
+        />
+      )}
+
+      {/* Location lookup indicator */}
       {loading && (
         <div
           style={{
@@ -335,8 +294,7 @@ export default function Map({
             padding: "8px 12px",
             borderRadius: "10px",
             fontSize: "13px",
-            boxShadow:
-              "0 2px 10px rgba(0, 0, 0, 0.15)",
+            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.15)",
           }}
         >
           Finding your area...
