@@ -66,30 +66,30 @@ export default function DashboardPage() {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [backendConnected, setBackendConnected] = useState(true);
 
-useEffect(() => {
-  async function loadBookings() {
-    try {
-      const response = await fetch(`${API_URL}/bookings`, {
-        cache: "no-store",
-      });
+  useEffect(() => {
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${API_URL}/bookings`, {
+          cache: "no-store",
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to load bookings");
+        if (!response.ok) {
+          throw new Error("Failed to load bookings");
+        }
+
+        const data = await response.json();
+
+        setBookings(Array.isArray(data.bookings) ? data.bookings : []);
+        setBackendConnected(true);
+      } catch {
+        setBackendConnected(false);
+      } finally {
+        setLoadingBookings(false);
       }
-
-      const data = await response.json();
-
-      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
-      setBackendConnected(true);
-    } catch {
-      setBackendConnected(false);
-    } finally {
-      setLoadingBookings(false);
     }
-  }
 
-  loadBookings();
-}, []);
+    loadBookings();
+  }, []);
 
   const activeBookings = bookings.filter(
     (booking) =>
@@ -158,8 +158,17 @@ useEffect(() => {
               </p>
             </div>
 
-            <div className="rounded-full border border-[#17251f]/10 bg-[#fbfaf7] px-4 py-2.5 text-sm text-[#17251f]/55 shadow-sm">
-              Monday · September 7, 2026
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/admin"
+                className="rounded-full bg-[#173c31] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#245443]"
+              >
+                Admin Panel →
+              </Link>
+
+              <div className="rounded-full border border-[#17251f]/10 bg-[#fbfaf7] px-4 py-2.5 text-sm text-[#17251f]/55 shadow-sm">
+                Monday · September 7, 2026
+              </div>
             </div>
           </div>
         </section>
