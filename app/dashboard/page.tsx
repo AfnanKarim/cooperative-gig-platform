@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 
 const API_URL = "https://veyra-backend-aydx.onrender.com";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+);
 
 const demand = [
   { service: "Electrical", value: 82 },
@@ -63,8 +69,43 @@ type Booking = {
 
 export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [fullName, setFullName] = useState("User");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [backendConnected, setBackendConnected] = useState(true);
+
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+
+        if (!authData.user) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+
+        setFullName(
+          profile?.full_name?.trim() ||
+            authData.user.email?.split("@")[0] ||
+            "User",
+        );
+        setIsAdmin(profile?.role === "admin");
+      } catch (error) {
+        console.error("Unable to load dashboard user:", error);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    loadUserProfile();
+  }, []);
 
   useEffect(() => {
     async function loadBookings() {
@@ -133,7 +174,7 @@ export default function DashboardPage() {
             </Link>
 
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#173c31] text-sm font-semibold text-white">
-              A
+              {authLoading ? "…" : getInitial(fullName)}
             </div>
           </div>
         </div>
@@ -145,26 +186,29 @@ export default function DashboardPage() {
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#477565]">
-                Cooperative dashboard
+                {isAdmin ? "Cooperative dashboard" : "Veyra dashboard"}
               </p>
 
               <h1 className="text-4xl font-semibold tracking-[-0.03em] text-[#17251f] md:text-5xl">
-                Good morning, Cooperative Admin.
+                Good morning, {isAdmin ? "Cooperative Admin" : fullName}.
               </h1>
 
               <p className="mt-4 max-w-2xl text-base leading-7 text-[#17251f]/55">
-                Monitor service demand, worker opportunities, and bookings
-                across your cooperative.
+                {isAdmin
+                  ? "Monitor service demand, worker opportunities, and bookings across your cooperative."
+                  : "Manage your services, bookings, and activity with Veyra."}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/admin"
-                className="rounded-full bg-[#173c31] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#245443]"
-              >
-                Admin Panel →
-              </Link>
+              {isAdmin && !authLoading && (
+                <Link
+                  href="/admin"
+                  className="rounded-full bg-[#173c31] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#245443]"
+                >
+                  Admin Panel →
+                </Link>
+              )}
 
               <div className="rounded-full border border-[#17251f]/10 bg-[#fbfaf7] px-4 py-2.5 text-sm text-[#17251f]/55 shadow-sm">
                 Monday · September 7, 2026
@@ -573,6 +617,12 @@ function formatBookingDate(value: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function getInitial(name: string) {
+  const trimmed = name.trim();
+
+  return trimmed ? trimmed.charAt(0).toUpperCase() : "U";
 }
 
 function capitalize(value: string) {

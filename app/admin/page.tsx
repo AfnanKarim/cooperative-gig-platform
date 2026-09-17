@@ -4,12 +4,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import AdminApplications from "./AdminApplications";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const cookieStore = await cookies();
 
   // Authenticated Supabase client.
-  // Used only to identify the logged-in user
-  // and verify that the user is an admin.
+  // This client is used only to identify the currently
+  // logged-in user and verify their role.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -19,8 +21,10 @@ export default async function AdminPage() {
           return cookieStore.getAll();
         },
 
+        // This page is a Server Component.
         // Server Components cannot modify cookies while rendering.
-        // Cookie updates are handled by the auth callback / client flow.
+        // Authentication cookie updates should happen through
+        // the authentication flow / proxy / route handler.
         setAll() {},
       },
     }
@@ -32,26 +36,28 @@ export default async function AdminPage() {
     error: userError,
   } = await supabase.auth.getUser();
 
+  // No valid session -> send the user to login.
   if (userError || !user) {
     redirect("/login");
   }
 
-  // Verify the user's role from the profiles table.
-  const { data: profile, error: profileError } = await supabase
+  // Read the user's profile and role.
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
     .from("profiles")
     .select("full_name, role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (profileError || profile?.role !== "admin") {
+  // Only an authenticated admin can access this page.
+  if (profileError || !profile || profile.role !== "admin") {
     redirect("/");
   }
 
-  // Server-only service-role client.
-  //
-  // IMPORTANT:
-  // SUPABASE_SERVICE_ROLE_KEY must NEVER be exposed
-  // through NEXT_PUBLIC_ variables or client-side code.
+  // The service-role key is server-only.
+  // It must never use a NEXT_PUBLIC_ variable.
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
@@ -60,6 +66,9 @@ export default async function AdminPage() {
     );
   }
 
+  // Server-only Supabase client.
+  // This client is used to read worker applications
+  // without exposing the service-role key to the browser.
   const adminSupabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey,
@@ -71,7 +80,7 @@ export default async function AdminPage() {
     }
   );
 
-  // Load worker applications using the server-only admin client.
+  // Load all worker applications.
   const {
     data: applications,
     error: applicationsError,
